@@ -1,0 +1,4 @@
+DELETE {{baseUrl}}user/roles/6777cd9bafb618ca78c3b6f5 HTTP/1.1
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{accessToken}}

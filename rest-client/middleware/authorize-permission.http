@@ -1,0 +1,8 @@
+POST {{baseUrl}}middleware/authorize-permission HTTP/1.1
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+    "permission": "USER"
+}

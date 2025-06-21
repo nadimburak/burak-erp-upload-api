@@ -1,0 +1,4 @@
+DELETE {{baseUrl}}user/users/682c69aac3c34690b39b4dcc HTTP/1.1
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{accessToken}}

@@ -1,0 +1,11 @@
+POST {{baseUrl}}user/users HTTP/1.1
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+    "name": "Nadim Sheikh",
+    "email": "nadim@gmail.com",
+    "password": "Abcd@1234",
+    "role":"67a9d3c052e832244b42e4e9"
+}

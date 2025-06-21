@@ -1,0 +1,4 @@
+GET {{baseUrl}}auth/get-profile HTTP/1.1
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODNhYTU3MmE2YmY0ZDI5N2I0NmE5YjQiLCJpYXQiOjE3NDg2NzM5MjcsImV4cCI6MTc0OTAzMzkyN30.8PsTJpwpJePqqhK-4W-lKdRna4wqkalSsmUL0v2bAxI

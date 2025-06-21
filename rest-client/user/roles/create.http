@@ -1,0 +1,10 @@
+POST {{baseUrl}}user/roles HTTP/1.1
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+    "name": "Admin",
+    "status":true,
+    "permission":"67ac4812d797262419642d72"
+}

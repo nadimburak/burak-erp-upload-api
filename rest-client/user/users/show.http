@@ -1,0 +1,4 @@
+GET {{baseUrl}}user/users/67ac4879d797262419642d82 HTTP/1.1
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{accessToken}}
