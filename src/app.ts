@@ -61,22 +61,25 @@ class App {
   }
 
   private configureMulter(): multer.Multer {
+    // Add validation for required fields
+    const validateChunkUpload = (req: ChunkUploadRequest) => {
+      const { uploadId, chunkIndex } = req.body;
+      if (!uploadId || !chunkIndex) {
+        throw new Error('Missing required fields: uploadId and chunkIndex');
+      }
+    };
+
     // Configure storage
     const storage = diskStorage({
       destination: async (req: ChunkUploadRequest, file, cb) => {
         try {
+          validateChunkUpload(req);
           const { uploadId } = req.body;
-
-          // Validate uploadId format
-          if (!uploadId || typeof uploadId !== 'string') {
-            throw new Error('Missing or invalid uploadId');
-          }
-
           const chunkDir = path.join(TEMP_DIR, uploadId);
-          await fs.ensureDir(chunkDir); // Async directory creation
+          await fs.ensureDir(chunkDir);
           cb(null, chunkDir);
-        } catch (err:any) {
-          cb(err, ''); // Pass errors to Multer
+        } catch (err: any) {
+          cb(err, '');
         }
       },
       filename: (req: ChunkUploadRequest, file, cb) => {
@@ -87,11 +90,23 @@ class App {
 
     // File filter to allow only certain file types
     const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
-      if (allowedTypes.includes(file.mimetype)) {
+      const allowedTypes = [
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ];
+
+      // Also check file extension
+      const ext = path.extname(file.originalname).toLowerCase();
+      const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.doc', '.docx'];
+
+      if (allowedTypes.includes(file.mimetype) && allowedExtensions.includes(ext)) {
         cb(null, true);
       } else {
-        cb(new Error('Invalid file type'));
+        cb(new Error('Invalid file type or extension'));
       }
     };
 
@@ -111,10 +126,10 @@ class App {
     this.app.use(cors());
 
     // Verify directory exists
-    if (!fs.existsSync(UPLOAD_DIR)) {
+    if (!fs.exists(UPLOAD_DIR)) {
       fs.mkdir(UPLOAD_DIR, { recursive: true });
     }
-    if (!fs.existsSync(TEMP_DIR)) {
+    if (!fs.exists(TEMP_DIR)) {
       fs.mkdir(TEMP_DIR, { recursive: true });
     }
 

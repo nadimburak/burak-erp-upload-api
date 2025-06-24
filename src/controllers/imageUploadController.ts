@@ -47,19 +47,13 @@ export const store = async (req: AuthRequest, res: Response) => {
 export const storeChunk = async (req: Request, res: Response) => {
     try {
         const fileId = req.params.id;
-        console.log("fileId", fileId)
-        console.log("storeChunkreq", req)
-
+ 
         const offsetHeader = req.headers['upload-offset'];
         const lengthHeader = req.headers['upload-length'];
         const filename = req.headers['upload-name'];
 
-        console.log("filename", filename)
-
         const offset = parseInt(Array.isArray(offsetHeader) ? offsetHeader[0] : offsetHeader || '0', 10);
         const length = parseInt(Array.isArray(lengthHeader) ? lengthHeader[0] : lengthHeader || '0', 10);
-
-        // console.log("req.body", req.body)
 
         // Validate the request body
         if (!req.body || !Buffer.isBuffer(req.body)) {
@@ -74,7 +68,7 @@ export const storeChunk = async (req: Request, res: Response) => {
         const folderName = upload.file_name;
         const chunkDir = path.join(__dirname, TEMP_DIR, folderName);
 
-        if (!fs.existsSync(chunkDir)) {
+        if (!fs.exists(chunkDir)) {
             fs.mkdir(chunkDir, { recursive: true });
         }
 
@@ -101,7 +95,7 @@ export const destroy = async (req: Request, res: Response) => {
 
         if (upload) {
             // Delete local file
-            if (fs.existsSync(upload.file_path)) {
+            if (await fs.exists(upload.file_path)) {
                 fs.unlinkSync(upload.file_path);
             }
 
@@ -140,7 +134,7 @@ export const view = async (req: Request, res: Response) => {
         const filePath = path.join(UPLOAD_DIR, upload.file_path);
         console.log("filePath", filePath);
 
-        if (!fs.existsSync(filePath)) {
+        if (!fs.exists(filePath)) {
             res.status(404).json({
                 success: false,
                 message: 'File not found on server'

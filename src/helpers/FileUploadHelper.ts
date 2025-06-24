@@ -85,7 +85,7 @@ export const simpleUpload = (file: SimpleUploadFile): string => {
     const folder = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
     const uploadPath = path.join(__dirname, UPLOAD_DIR, folder);
 
-    if (!fs.existsSync(uploadPath)) {
+    if (!fs.exists(uploadPath)) {
         fs.mkdir(uploadPath, { recursive: true });
     }
 
@@ -150,7 +150,7 @@ export const processChunkUploads = async (
     const folderName = upload.file_name;
     const chunkDir = path.join(__dirname, TEMP_DIR, folderName);
 
-    if (!fs.existsSync(chunkDir)) {
+    if (!fs.exists(chunkDir)) {
         fs.mkdir(chunkDir, { recursive: true });
     }
 
@@ -176,49 +176,54 @@ export const combineChunks = async (
     uniqueId: string,
     parentDir: string
 ): Promise<void> => {
-    const upload: UpdateDataResult | null = await Upload.findOne({ file_name: uniqueId });
-    if (!upload) return;
+    try {
+        const upload = await Upload.findOne({ file_name: uniqueId });
+        if (!upload) throw new Error('Upload record not found');
 
-    const finalFileName: string = `${upload.file_name}.${upload.file_extension}`;
-    const finalFilePath: string = path.join(__dirname, UPLOAD_DIR, finalFileName);
+        const finalFileName = `${upload.file_name}.${upload.file_extension}`;
+        const finalFilePath = path.join(UPLOAD_DIR, finalFileName);
 
-    // Ensure uploads directory exists
-    const uploadsDir: string = path.join(__dirname, UPLOAD_DIR);
-    if (!fs.existsSync(uploadsDir)) {
-        fs.mkdir(uploadsDir, { recursive: true });
-    }
+        await fs.ensureDir(UPLOAD_DIR);
 
-    // Get and sort chunks
-    const chunkFiles: string[] = fs.readdirSync(chunkDir)
-        .filter((file: string) => file.startsWith('chunk_'))
-        .sort((a: string, b: string) => {
-            const aNum: number = parseInt(a.split('_')[1]);
-            const bNum: number = parseInt(b.split('_')[1]);
-            return aNum - bNum;
+        const chunkFiles = fs.readdirSync(chunkDir)
+            .filter(file => file.startsWith('chunk_'))
+            .sort((a, b) => {
+                const aNum = parseInt(a.split('_')[1]);
+                const bNum = parseInt(b.split('_')[1]);
+                return aNum - bNum;
+            });
+
+        const writeStream = fs.createWriteStream(finalFilePath);
+        
+        for (const chunkFile of chunkFiles) {
+            const chunkPath = path.join(chunkDir, chunkFile);
+            const chunkData = await fs.readFile(chunkPath);
+            writeStream.write(chunkData);
+            await fs.unlink(chunkPath);
+        }
+
+        writeStream.end();
+        
+        // Wait for write stream to finish
+        await new Promise<void>((resolve, reject) => {
+            writeStream.on('finish', () => resolve());
+            writeStream.on('error', (err) => reject(err));
         });
 
-    const writeStream: WriteStream = fs.createWriteStream(finalFilePath);
-    for (const chunkFile of chunkFiles) {
-        const chunkPath: string = path.join(chunkDir, chunkFile);
-        const chunkData: Buffer = fs.readFileSync(chunkPath);
-        writeStream.write(chunkData);
-        fs.unlinkSync(chunkPath); // Delete chunk after combining
-    }
-    writeStream.end();
+        upload.file_url = `/uploads/${finalFileName}`;
+        await upload.save();
 
-    // Update upload record
-    // upload.file_path = finalFilePath;
-    upload.file_url = `/uploads/${finalFileName}`;
-    await upload.save();
-
-    // Clean up
-    fs.rmdirSync(chunkDir);
-    try {
-        fs.rmdirSync(parentDir); // Remove parent directory if empty
-    } catch (err) {
-        // Directory not empty - ignore
+        await fs.rm(chunkDir, { recursive: true });
+        try {
+            await fs.rmdir(parentDir);
+        } catch (err) {
+            // Ignore non-empty directory error
+        }
+    } catch (error) {
+        console.error('Error combining chunks:', error);
+        throw error; // Re-throw for controller to handle
     }
-}
+};
 
 export const checkFileExists = async (file_path: any) => {
     try {
