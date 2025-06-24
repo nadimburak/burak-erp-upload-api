@@ -58,6 +58,7 @@ class App {
     this.initializeViewEngine();
     this.initializeRoutes();
     this.initializeErrorHandling();
+    this.ensureDirectoriesExist();
   }
 
   private configureMulter(): multer.Multer {
@@ -125,14 +126,6 @@ class App {
     this.app.use(bodyParser.urlencoded({ extended: true }));
     this.app.use(cors());
 
-    // Verify directory exists
-    if (!fs.exists(UPLOAD_DIR)) {
-      fs.mkdir(UPLOAD_DIR, { recursive: true });
-    }
-    if (!fs.exists(TEMP_DIR)) {
-      fs.mkdir(TEMP_DIR, { recursive: true });
-    }
-
     this.app.use('/uploads', express.static(UPLOAD_DIR));
 
     // Add request logging middleware
@@ -140,6 +133,18 @@ class App {
       console.log(`${req.method} ${req.path}`);
       next();
     });
+  }
+
+  private async ensureDirectoriesExist(): Promise<void> {
+    try {
+      await fs.ensureDir(UPLOAD_DIR);
+      await fs.ensureDir(TEMP_DIR);
+      console.log(`Upload directory: ${UPLOAD_DIR}`);
+      console.log(`Temp directory: ${TEMP_DIR}`);
+    } catch (error) {
+      console.error('Failed to create directories:', error);
+      process.exit(1);
+    }
   }
 
   private initializeViewEngine(): void {

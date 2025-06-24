@@ -181,11 +181,12 @@ export const combineChunks = async (
         if (!upload) throw new Error('Upload record not found');
 
         const finalFileName = `${upload.file_name}.${upload.file_extension}`;
+        // Remove __dirname from path construction
         const finalFilePath = path.join(UPLOAD_DIR, finalFileName);
 
         await fs.ensureDir(UPLOAD_DIR);
 
-        const chunkFiles = fs.readdirSync(chunkDir)
+        const chunkFiles = (await fs.readdir(chunkDir))
             .filter(file => file.startsWith('chunk_'))
             .sort((a, b) => {
                 const aNum = parseInt(a.split('_')[1]);
@@ -207,7 +208,7 @@ export const combineChunks = async (
         // Wait for write stream to finish
         await new Promise<void>((resolve, reject) => {
             writeStream.on('finish', () => resolve());
-            writeStream.on('error', (err) => reject(err));
+            writeStream.on('error', () => reject());
         });
 
         upload.file_url = `/uploads/${finalFileName}`;
@@ -221,7 +222,7 @@ export const combineChunks = async (
         }
     } catch (error) {
         console.error('Error combining chunks:', error);
-        throw error; // Re-throw for controller to handle
+        throw error;
     }
 };
 

@@ -47,7 +47,8 @@ export const store = async (req: AuthRequest, res: Response) => {
 export const storeChunk = async (req: Request, res: Response) => {
     try {
         const fileId = req.params.id;
- 
+        console.log("fileId", fileId);
+
         const offsetHeader = req.headers['upload-offset'];
         const lengthHeader = req.headers['upload-length'];
         const filename = req.headers['upload-name'];
@@ -55,35 +56,32 @@ export const storeChunk = async (req: Request, res: Response) => {
         const offset = parseInt(Array.isArray(offsetHeader) ? offsetHeader[0] : offsetHeader || '0', 10);
         const length = parseInt(Array.isArray(lengthHeader) ? lengthHeader[0] : lengthHeader || '0', 10);
 
-        // Validate the request body
-        if (!req.body || !Buffer.isBuffer(req.body)) {
-            throw new Error('Invalid chunk data: body must be a Buffer');
-        }
-
         const upload = await Upload.findOne({ file_path: fileId });
         if (!upload) {
             throw new Error('Upload record not found');
         }
 
         const folderName = upload.file_name;
-        const chunkDir = path.join(__dirname, TEMP_DIR, folderName);
+        // Remove __dirname from the path construction
+        const chunkDir = path.join(TEMP_DIR, folderName);
 
-        if (!fs.exists(chunkDir)) {
-            fs.mkdir(chunkDir, { recursive: true });
-        }
+        await fs.ensureDir(chunkDir); // Use async version
 
         const chunkPath = path.join(chunkDir, `chunk_${offset}`);
-        fs.writeFileSync(chunkPath, req.body);
+        await fs.writeFile(chunkPath, req.body); // Use async version
 
-        // Check if all chunks are uploaded
         if (offset + req.body.length >= length) {
-            await combineChunks(chunkDir, folderName, path.join(chunkDir, '..'));
+            await combineChunks(chunkDir, folderName, path.dirname(chunkDir));
         }
 
-        res.status(200).json('updated');
+        res.status(200).json({ success: true, message: 'Chunk uploaded successfully' });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Server error' });
+        res.status(500).json({ 
+            success: false,
+            message: 'Server error',
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
     }
 };
 
