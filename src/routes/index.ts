@@ -4,7 +4,7 @@ import singleFilePondRoutes from "./singleFilePond";
 const app = express();
 
 app.get("/", (req: Request, res: Response) => {
-  res.send("Hello, TypeScript with Express! User Api is running.");
+  res.send("Hello, TypeScript with Express! File Manager Api is running.");
 });
 
 app.use("/single-file-pond", singleFilePondRoutes);

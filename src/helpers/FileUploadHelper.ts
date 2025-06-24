@@ -1,9 +1,9 @@
 import type { WriteStream } from 'fs';
 import Upload from "../models/upload";
-import { TEMP_DIR, UPLOAD_DIR } from '../app';
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+import fs from 'fs-extra';
+import path from 'path';
+import crypto from 'crypto';
+import { TEMP_DIR, UPLOAD_DIR } from '../utils/file.util';
 
 export interface GenerateFileInput {
     originalname: string;
@@ -86,7 +86,7 @@ export const simpleUpload = (file: SimpleUploadFile): string => {
     const uploadPath = path.join(__dirname, UPLOAD_DIR, folder);
 
     if (!fs.existsSync(uploadPath)) {
-        fs.mkdirSync(uploadPath, { recursive: true });
+        fs.mkdir(uploadPath, { recursive: true });
     }
 
     const filePath = path.join(uploadPath, file.originalname);
@@ -99,20 +99,24 @@ export const startChunkProcess = async () => {
     let attempt = 0;
     let folderName;
 
-    const tempDir = path.join(__dirname, TEMP_DIR);
+    // Ensure temp directory exists
+    await fs.ensureDir(TEMP_DIR);
 
     do {
         folderName = crypto.randomBytes(10).toString('hex');
-        const folderPath = path.join(tempDir, folderName);
+        const folderPath = path.join(TEMP_DIR, folderName);
         attempt++;
 
-        if (!fs.existsSync(folderPath)) {
-            fs.mkdirSync(folderPath, { recursive: true });
+        try {
+            // Use mkdir instead of mkdirSync to avoid race conditions
+            await fs.mkdir(folderPath);
             return folderName;
+        } catch (err) {
+            if (!(err && typeof err === 'object' && 'code' in err && (err as any).code === 'EEXIST')) throw err; // Only ignore "already exists" errors
         }
     } while (attempt < maxAttempts);
 
-    return null;
+    throw new Error('Failed to create unique directory after multiple attempts');
 }
 
 export interface ProcessChunkUploadsRequest {
@@ -147,7 +151,7 @@ export const processChunkUploads = async (
     const chunkDir = path.join(__dirname, TEMP_DIR, folderName);
 
     if (!fs.existsSync(chunkDir)) {
-        fs.mkdirSync(chunkDir, { recursive: true });
+        fs.mkdir(chunkDir, { recursive: true });
     }
 
     const chunkPath = path.join(chunkDir, `chunk_${offset}`);
@@ -181,7 +185,7 @@ export const combineChunks = async (
     // Ensure uploads directory exists
     const uploadsDir: string = path.join(__dirname, UPLOAD_DIR);
     if (!fs.existsSync(uploadsDir)) {
-        fs.mkdirSync(uploadsDir, { recursive: true });
+        fs.mkdir(uploadsDir, { recursive: true });
     }
 
     // Get and sort chunks

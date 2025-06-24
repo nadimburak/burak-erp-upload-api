@@ -2,9 +2,9 @@ import { Request, Response } from "express";
 import { checkFileExists, combineChunks, startChunkProcess } from "../helpers/FileUploadHelper";
 import { AuthRequest } from "../interfaces/Auth";
 import Upload from "../models/upload";
-import { TEMP_DIR, UPLOAD_DIR } from "../app";
-const fs = require('fs');
-const path = require('path');
+import { TEMP_DIR, UPLOAD_DIR } from "../utils/file.util";
+import path from "path";
+import fs from 'fs-extra';
 
 export const store = async (req: AuthRequest, res: Response) => {
     try {
@@ -75,7 +75,7 @@ export const storeChunk = async (req: Request, res: Response) => {
         const chunkDir = path.join(__dirname, TEMP_DIR, folderName);
 
         if (!fs.existsSync(chunkDir)) {
-            fs.mkdirSync(chunkDir, { recursive: true });
+            fs.mkdir(chunkDir, { recursive: true });
         }
 
         const chunkPath = path.join(chunkDir, `chunk_${offset}`);
@@ -147,11 +147,11 @@ export const view = async (req: Request, res: Response) => {
             });
         }
 
-        // res.setHeader('Content-Type', upload.file_mime_type);
-        // res.setHeader('Content-Disposition', `inline; filename="${upload.file_original_name}"`);
+        res.setHeader('Content-Type', upload.file_mime_type);
+        res.setHeader('Content-Disposition', `inline; filename="${upload.file_original_name}"`);
 
-        // const fileStream = fs.createReadStream(filePath);
-        // fileStream.pipe(res);
+        const fileStream = fs.createReadStream(filePath);
+        fileStream.pipe(res);
     } catch (error: unknown) {
         console.error(error);
         res.status(500).json({

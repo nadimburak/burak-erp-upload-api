@@ -8,6 +8,7 @@ import routes from './routes';
 import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
 import fs from 'fs-extra';
 import multer, { diskStorage } from 'multer';
+import { TEMP_DIR, UPLOAD_DIR } from './utils/file.util';
 
 
 // Load environment variables
@@ -28,9 +29,6 @@ interface ChunkUploadRequest extends Request {
     filename: string;
   };
 }
-
-export const UPLOAD_DIR = path.join(__dirname, 'uploads');
-export const TEMP_DIR = path.join(__dirname, 'temp');
 
 class App {
   public app: Application;
@@ -65,11 +63,21 @@ class App {
   private configureMulter(): multer.Multer {
     // Configure storage
     const storage = diskStorage({
-      destination: (req: ChunkUploadRequest, file, cb) => {
-        const { uploadId } = req.body;
-        const chunkDir = path.join(TEMP_DIR, uploadId);
-        fs.ensureDirSync(chunkDir);
-        cb(null, chunkDir);
+      destination: async (req: ChunkUploadRequest, file, cb) => {
+        try {
+          const { uploadId } = req.body;
+
+          // Validate uploadId format
+          if (!uploadId || typeof uploadId !== 'string') {
+            throw new Error('Missing or invalid uploadId');
+          }
+
+          const chunkDir = path.join(TEMP_DIR, uploadId);
+          await fs.ensureDir(chunkDir); // Async directory creation
+          cb(null, chunkDir);
+        } catch (err:any) {
+          cb(err, ''); // Pass errors to Multer
+        }
       },
       filename: (req: ChunkUploadRequest, file, cb) => {
         const { chunkIndex } = req.body;
@@ -104,10 +112,10 @@ class App {
 
     // Verify directory exists
     if (!fs.existsSync(UPLOAD_DIR)) {
-      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+      fs.mkdir(UPLOAD_DIR, { recursive: true });
     }
     if (!fs.existsSync(TEMP_DIR)) {
-      fs.mkdirSync(TEMP_DIR, { recursive: true });
+      fs.mkdir(TEMP_DIR, { recursive: true });
     }
 
     this.app.use('/uploads', express.static(UPLOAD_DIR));
