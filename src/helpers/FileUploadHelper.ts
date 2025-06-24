@@ -1,6 +1,5 @@
-import { Request } from "express";
-import Upload from "../models/Upload";
 import type { WriteStream } from 'fs';
+import Upload from "../models/upload";
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');

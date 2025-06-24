@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { combineChunks, startChunkProcess } from "../helpers/FileUploadHelper";
-import Upload from "../models/Upload";
 import { AuthRequest } from "../interfaces/Auth";
+import Upload from "../models/upload";
 const fs = require('fs');
 const path = require('path');
 
