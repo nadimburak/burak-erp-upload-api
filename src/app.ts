@@ -98,11 +98,6 @@ class App {
   }
 
   private initializeMiddlewares(): void {
-    // Handle raw binary data (for file uploads)
-    this.app.use(bodyParser.raw({
-      type: '*/*', // or '*/*' for all types
-      limit: '10gb', // Adjust based on your needs
-    }));
     this.app.use(bodyParser.json());
     this.app.use(bodyParser.urlencoded({ extended: true }));
     this.app.use(cors());

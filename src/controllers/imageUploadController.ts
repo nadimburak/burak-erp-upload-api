@@ -137,7 +137,9 @@ export const view = async (req: Request, res: Response) => {
             return;
         }
 
-        if (!fs.existsSync(upload.file_path)) {
+        const filePath=`uploads/${upload.file_path}`
+
+        if (!fs.existsSync(filePath)) {
             res.status(404).json({
                 success: false,
                 message: 'File not found on server'
@@ -148,7 +150,7 @@ export const view = async (req: Request, res: Response) => {
         res.setHeader('Content-Type', upload.file_mime_type);
         res.setHeader('Content-Disposition', `inline; filename="${upload.file_original_name}"`);
 
-        const fileStream = fs.createReadStream(upload.file_path);
+        const fileStream = fs.createReadStream(filePath);
         fileStream.pipe(res);
     } catch (error: unknown) {
         console.error(error);
