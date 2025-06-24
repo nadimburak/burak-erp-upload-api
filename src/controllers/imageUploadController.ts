@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
-import { combineChunks, startChunkProcess } from "../helpers/FileUploadHelper";
+import { checkFileExists, combineChunks, startChunkProcess } from "../helpers/FileUploadHelper";
 import { AuthRequest } from "../interfaces/Auth";
 import Upload from "../models/upload";
+import { TEMP_DIR, UPLOAD_DIR } from "../app";
 const fs = require('fs');
 const path = require('path');
 
@@ -71,7 +72,7 @@ export const storeChunk = async (req: Request, res: Response) => {
         }
 
         const folderName = upload.file_name;
-        const chunkDir = path.join(__dirname, '../../storage/tempdir/chunk', folderName);
+        const chunkDir = path.join(__dirname, TEMP_DIR, folderName);
 
         if (!fs.existsSync(chunkDir)) {
             fs.mkdirSync(chunkDir, { recursive: true });
@@ -126,9 +127,8 @@ export const destroy = async (req: Request, res: Response) => {
 // GET /upload/load - Load file for FilePond restore
 export const view = async (req: Request, res: Response) => {
     try {
-        const id = req.query.id;
+        const id = req.params.id;
         const upload = await Upload.findOne({ file_path: id });
-
         if (!upload) {
             res.status(404).json({
                 success: false,
@@ -137,21 +137,21 @@ export const view = async (req: Request, res: Response) => {
             return;
         }
 
-        const filePath=`uploads/${upload.file_path}`
+        const filePath = path.join(UPLOAD_DIR, upload.file_path);
+        console.log("filePath", filePath);
 
         if (!fs.existsSync(filePath)) {
             res.status(404).json({
                 success: false,
                 message: 'File not found on server'
             });
-
         }
 
-        res.setHeader('Content-Type', upload.file_mime_type);
-        res.setHeader('Content-Disposition', `inline; filename="${upload.file_original_name}"`);
+        // res.setHeader('Content-Type', upload.file_mime_type);
+        // res.setHeader('Content-Disposition', `inline; filename="${upload.file_original_name}"`);
 
-        const fileStream = fs.createReadStream(filePath);
-        fileStream.pipe(res);
+        // const fileStream = fs.createReadStream(filePath);
+        // fileStream.pipe(res);
     } catch (error: unknown) {
         console.error(error);
         res.status(500).json({

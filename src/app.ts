@@ -29,8 +29,8 @@ interface ChunkUploadRequest extends Request {
   };
 }
 
-const UPLOAD_DIR = path.join(__dirname, 'uploads');
-const TEMP_DIR = path.join(__dirname, 'temp');
+export const UPLOAD_DIR = path.join(__dirname, 'uploads');
+export const TEMP_DIR = path.join(__dirname, 'temp');
 
 class App {
   public app: Application;
@@ -102,8 +102,15 @@ class App {
     this.app.use(bodyParser.urlencoded({ extended: true }));
     this.app.use(cors());
 
-    this.app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+    // Verify directory exists
+    if (!fs.existsSync(UPLOAD_DIR)) {
+      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    }
+    if (!fs.existsSync(TEMP_DIR)) {
+      fs.mkdirSync(TEMP_DIR, { recursive: true });
+    }
 
+    this.app.use('/uploads', express.static(UPLOAD_DIR));
 
     // Add request logging middleware
     this.app.use((req: Request, res: Response, next: NextFunction) => {

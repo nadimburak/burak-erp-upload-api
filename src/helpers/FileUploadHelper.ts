@@ -1,5 +1,6 @@
 import type { WriteStream } from 'fs';
 import Upload from "../models/upload";
+import { TEMP_DIR, UPLOAD_DIR } from '../app';
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -82,7 +83,7 @@ export interface SimpleUploadFile {
 
 export const simpleUpload = (file: SimpleUploadFile): string => {
     const folder = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-    const uploadPath = path.join(__dirname, '../../storage/tempdir', folder);
+    const uploadPath = path.join(__dirname, UPLOAD_DIR, folder);
 
     if (!fs.existsSync(uploadPath)) {
         fs.mkdirSync(uploadPath, { recursive: true });
@@ -98,7 +99,7 @@ export const startChunkProcess = async () => {
     let attempt = 0;
     let folderName;
 
-    const tempDir = path.join(__dirname, '../../storage/tempdir/chunk');
+    const tempDir = path.join(__dirname, TEMP_DIR);
 
     do {
         folderName = crypto.randomBytes(10).toString('hex');
@@ -143,7 +144,7 @@ export const processChunkUploads = async (
     }
 
     const folderName = upload.file_name;
-    const chunkDir = path.join(__dirname, '../../storage/tempdir/chunk', folderName);
+    const chunkDir = path.join(__dirname, TEMP_DIR, folderName);
 
     if (!fs.existsSync(chunkDir)) {
         fs.mkdirSync(chunkDir, { recursive: true });
@@ -175,10 +176,10 @@ export const combineChunks = async (
     if (!upload) return;
 
     const finalFileName: string = `${upload.file_name}.${upload.file_extension}`;
-    const finalFilePath: string = path.join(__dirname, '../../storage/uploads', finalFileName);
+    const finalFilePath: string = path.join(__dirname, UPLOAD_DIR, finalFileName);
 
     // Ensure uploads directory exists
-    const uploadsDir: string = path.join(__dirname, '../../storage/uploads');
+    const uploadsDir: string = path.join(__dirname, UPLOAD_DIR);
     if (!fs.existsSync(uploadsDir)) {
         fs.mkdirSync(uploadsDir, { recursive: true });
     }
@@ -202,7 +203,7 @@ export const combineChunks = async (
     writeStream.end();
 
     // Update upload record
-    upload.file_path = finalFilePath;
+    // upload.file_path = finalFilePath;
     upload.file_url = `/uploads/${finalFileName}`;
     await upload.save();
 
@@ -212,6 +213,18 @@ export const combineChunks = async (
         fs.rmdirSync(parentDir); // Remove parent directory if empty
     } catch (err) {
         // Directory not empty - ignore
+    }
+}
+
+export const checkFileExists = async (file_path: any) => {
+    try {
+        const filePath = path.join(UPLOAD_DIR, file_path);
+        await fs.access(filePath, fs.constants.F_OK);
+        console.log("✅ File exists:", filePath);
+        return true;
+    } catch (err: any) {
+        console.error("❌ File does NOT exist:", err.message);
+        return false;
     }
 }
 
