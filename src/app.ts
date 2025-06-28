@@ -53,12 +53,11 @@ class App {
     });
     this.TestModel = mongoose.model<ITest>('Test', testSchema);
 
+    this.ensureDirectoriesExist();
     this.initializeMiddlewares();
     this.initializeDatabase();
-    this.initializeViewEngine();
     this.initializeRoutes();
     this.initializeErrorHandling();
-    this.ensureDirectoriesExist();
   }
 
   private configureMulter(): multer.Multer {
@@ -147,11 +146,6 @@ class App {
     }
   }
 
-  private initializeViewEngine(): void {
-    this.app.set('view engine', 'ejs');
-    this.app.set('views', path.join(__dirname, 'views'));
-    this.app.use(express.static(path.join(__dirname, 'public')));
-  }
 
   private initializeRoutes(): void {
     // MongoDB test endpoint
