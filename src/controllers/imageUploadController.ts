@@ -121,6 +121,7 @@ export const view = async (req: Request, res: Response) => {
     try {
         const id = req.params.id;
         const upload = await Upload.findOne({ file_path: id });
+        console.log("upload", upload);
         if (!upload) {
             res.status(404).json({
                 success: false,
@@ -137,6 +138,7 @@ export const view = async (req: Request, res: Response) => {
                 success: false,
                 message: 'File not found on server'
             });
+            return;
         }
 
         res.setHeader('Content-Type', upload.file_mime_type);
