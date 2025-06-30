@@ -72,10 +72,18 @@ export const storeChunk = async (req: Request, res: Response) => {
             chunkData: req.file?.buffer || req.body
         });
 
-        res.set('Upload-Offset', String(offset + (req.file?.buffer?.length || 0))).json({
+        res.status(200).json({
             success: true,
-            message: 'Chunk uploaded successfully'
+            message: 'Chunk uploaded successfully',
+            fileId: id,
+            fileName: filename,
+            offset: offset + (req.file?.buffer?.length || 0)
         });
+
+        // res.set('Upload-Offset', String(offset + (req.file?.buffer?.length || 0))).json({
+        //     success: true,
+        //     message: 'Chunk uploaded successfully'
+        // });
     } catch (error) {
         console.error('Chunk upload error:', error);
         const status = error instanceof Error && error.message.includes('not found') ? 404 : 500;
