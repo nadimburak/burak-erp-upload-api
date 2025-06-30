@@ -1,35 +1,42 @@
 import { Request, Response } from "express";
-import { checkFileExists, combineChunks, startChunkProcess } from "../helpers/FileUploadHelper";
-import { AuthRequest } from "../interfaces/Auth";
-import Upload from "../models/upload";
-import { TEMP_DIR, UPLOAD_DIR } from "../utils/file.util";
-import path from "path";
 import fs from 'fs-extra';
+import path from "path";
+import {
+    processChunkUploads,
+    startChunkProcess
+} from "../helpers/FileUploadHelper";
+import Upload from "../models/upload";
+import { UPLOAD_DIR } from "../utils/file.util";
+import {
+    validateChunkHeaders,
+    validateUploadMetadata
+} from "../validators/uploadValidator";
 
-export const store = async (req: AuthRequest, res: Response) => {
+export const store = async (req: Request, res: Response) => {
     try {
+        const { error } = await validateUploadMetadata(req.body);
+        if (error) {
+            res.status(400).json({ error: error.message });
+            return;
+        }
+
         const {
-            file_name,
-            file_extension,
-            file_size,
-            file_mime_type,
+            file_name: originalName,
+            file_extension: extension,
+            file_size: size,
+            file_mime_type: mimeType,
         } = req.body;
 
-        // console.log("req.body",req.body)
-        // return;
+        const fileName = await startChunkProcess();
+        const filePath = `${fileName}.${extension}`;
+        const fileUrl = `/uploads/${filePath}`;
 
-        // Generate unique file name
-        const fileName = await startChunkProcess()
-        const filePath = `${fileName}.${file_extension}`;
-        const fileUrl = `uploads/${fileName}.${file_extension}`;
-
-        // Create upload record
         const upload = new Upload({
             file_name: fileName,
-            file_original_name: file_name,
-            file_extension: file_extension,
-            file_size: file_size,
-            file_mime_type: file_mime_type,
+            file_original_name: originalName,
+            file_extension: extension,
+            file_size: size,
+            file_mime_type: mimeType,
             file_path: filePath,
             file_disk: "local",
             file_url: fileUrl
@@ -37,139 +44,112 @@ export const store = async (req: AuthRequest, res: Response) => {
 
         await upload.save();
 
-        res.status(200).json(upload);
+        res.status(201).json(upload);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Server error' });
+        console.error('Upload initialization error:', error);
+        res.status(500).json({ error: 'Failed to initialize upload' });
     }
 };
 
 export const storeChunk = async (req: Request, res: Response) => {
     try {
-        const fileId = req.params.id;
- 
-        const offsetHeader = req.headers['upload-offset'];
-        const lengthHeader = req.headers['upload-length'];
-        const filename = req.headers['upload-name'];
-
-        const offset = parseInt(Array.isArray(offsetHeader) ? offsetHeader[0] : offsetHeader || '0', 10);
-        const length = parseInt(Array.isArray(lengthHeader) ? lengthHeader[0] : lengthHeader || '0', 10);
-
-        // Validate the request body
-        if (!req.body || !Buffer.isBuffer(req.body)) {
-            throw new Error('Invalid chunk data: body must be a Buffer');
+        const { id } = req.params;
+        const { error } = await validateChunkHeaders(req.headers);
+        if (error) {
+            res.status(400).json({ error: error.message });
+            return;
         }
 
-        const upload = await Upload.findOne({ file_path: fileId });
-        if (!upload) {
-            throw new Error('Upload record not found');
-        }
+        const offset = parseInt(req.headers['upload-offset'] as string, 10);
+        const length = parseInt(req.headers['upload-length'] as string, 10);
+        const filename = req.headers['upload-name'] as string;
 
-        const folderName = upload.file_name;
-        const chunkDir = path.join(__dirname, TEMP_DIR, folderName);
+        await processChunkUploads({
+            fileId: id,
+            offset,
+            length,
+            filename,
+            chunkData: req.file?.buffer || req.body
+        });
 
-        if (!fs.exists(chunkDir)) {
-            fs.mkdir(chunkDir, { recursive: true });
-        }
-
-        const chunkPath = path.join(chunkDir, `chunk_${offset}`);
-        fs.writeFileSync(chunkPath, req.body);
-
-        // Check if all chunks are uploaded
-        if (offset + req.body.length >= length) {
-            await combineChunks(chunkDir, folderName, path.join(chunkDir, '..'));
-        }
-
-        res.status(200).json('updated');
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Server error' });
-    }
-};
-
-// DELETE /upload - Delete uploaded file
-export const destroy = async (req: Request, res: Response) => {
-    try {
-        const id = req.body;
-        const upload = await Upload.findOne({ file_path: id });
-
-        if (upload) {
-            // Delete local file
-            if (await fs.exists(upload.file_path)) {
-                fs.unlinkSync(upload.file_path);
-            }
-
-            // Delete from database
-            await upload.deleteOne();
-
-            res.status(200).json({
-                success: true,
-                message: 'File deleted successfully'
-            });
-        }
-
-        res.status(404).json({
-            success: false,
-            message: 'File not found'
+        res.set('Upload-Offset', String(offset + (req.file?.buffer?.length || 0))).json({
+            success: true,
+            message: 'Chunk uploaded successfully'
         });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Server error' });
+        console.error('Chunk upload error:', error);
+        const status = error instanceof Error && error.message.includes('not found') ? 404 : 500;
+        res.status(status).json({
+            success: false,
+            message: error instanceof Error ? error.message : 'Chunk upload failed'
+        });
     }
 };
 
-// GET /upload/load - Load file for FilePond restore
-export const view = async (req: Request, res: Response) => {
+export const destroy = async (req: Request, res: Response) => {
     try {
-        const id = req.params.id;
-        const upload = await Upload.findOne({ file_path: id });
+        const { id } = req.params;
+        const upload = await Upload.findOneAndDelete({ file_path: id });
+
         if (!upload) {
-            res.status(404).json({
-                success: false,
-                message: 'File not found'
-            });
+            res.status(404).json({ success: false, message: 'File not found' });
             return;
         }
 
         const filePath = path.join(UPLOAD_DIR, upload.file_path);
-        console.log("filePath", filePath);
-
-        if (!fs.exists(filePath)) {
-            res.status(404).json({
-                success: false,
-                message: 'File not found on server'
-            });
+        if (await fs.pathExists(filePath)) {
+            await fs.unlink(filePath);
         }
 
-        res.setHeader('Content-Type', upload.file_mime_type);
-        res.setHeader('Content-Disposition', `inline; filename="${upload.file_original_name}"`);
+        res.status(200).json({ success: true, message: 'File deleted successfully' });
+    } catch (error) {
+        console.error('File deletion error:', error);
+        res.status(500).json({ error: 'Failed to delete file' });
+    }
+};
+
+export const view = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const upload = await Upload.findOne({ file_path: id });
+
+        if (!upload) {
+            res.status(404).json({ success: false, message: 'File not found' });
+            return;
+        }
+
+        const filePath = path.join(UPLOAD_DIR, upload.file_path);
+        if (!await fs.pathExists(filePath)) {
+            res.status(404).json({ success: false, message: 'File not found on server' });
+            return;
+        }
+
+        res.set({
+            'Content-Type': upload.file_mime_type,
+            'Content-Disposition': `inline; filename="${upload.file_original_name}"`,
+            'Content-Length': upload.file_size
+        });
 
         const fileStream = fs.createReadStream(filePath);
         fileStream.pipe(res);
-    } catch (error: unknown) {
-        console.error(error);
+    } catch (error) {
+        console.error('File view error:', error);
         res.status(500).json({
             success: false,
-            message: `File load failed: ${error instanceof Error ? error.message : String(error)}`
+            message: 'Failed to load file'
         });
     }
 };
 
-// GET /upload/loadAll - Load all files for specific criteria
 export const index = async (req: Request, res: Response) => {
     try {
-
-        const uploads = await Upload.find();
-
-        res.status(200).json({
-            success: true,
-            uploads: uploads
-        });
+        const uploads = await Upload.find().select('-__v').lean();
+        res.status(200).json({ success: true, uploads });
     } catch (error) {
-        console.error(error);
+        console.error('File list error:', error);
         res.status(500).json({
             success: false,
-            message: `Failed to load files: ${error instanceof Error ? error.message : String(error)}`
+            message: 'Failed to load files'
         });
     }
 };
