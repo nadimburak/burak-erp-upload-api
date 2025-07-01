@@ -126,6 +126,26 @@ export const view = async (req: Request, res: Response) => {
             return;
         }
 
+        res.status(200).json({ data: upload });
+    } catch (error) {
+        console.error('File view error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to load file'
+        });
+    }
+};
+
+export const load = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const upload = await Upload.findOne({ file_path: id });
+
+        if (!upload) {
+            res.status(404).json({ success: false, message: 'File not found' });
+            return;
+        }
+
         const filePath = path.join(UPLOAD_DIR, upload.file_path);
         if (!await fs.pathExists(filePath)) {
             res.status(404).json({ success: false, message: 'File not found on server' });
