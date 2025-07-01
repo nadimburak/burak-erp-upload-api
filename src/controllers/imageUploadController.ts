@@ -126,7 +126,7 @@ export const view = async (req: Request, res: Response) => {
             return;
         }
 
-        res.status(200).json({ data: upload });
+        res.status(200).json(upload);
     } catch (error) {
         console.error('File view error:', error);
         res.status(500).json({
