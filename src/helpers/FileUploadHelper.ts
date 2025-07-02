@@ -103,7 +103,7 @@ export const combineChunks = async ({
     await upload.save();
 
     try {
-        await fs.rm(chunkDir, { recursive: true });
+        await fs.remove(chunkDir);
     } catch (err) {
         console.error('Error cleaning up chunk directory:', err);
     }
