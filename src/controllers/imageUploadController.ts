@@ -151,7 +151,7 @@ export const index = async (req: Request, res: Response) => {
 
         // If load parameter is provided, filter by file_path
         if (load && typeof load === 'string') {
-            const uploads = await Upload.find({ file_path: load })
+            const uploads = await Upload.findOne({ file_path: load })
                 .select('-__v')
                 .lean()
                 .exec(); // Adding .exec() for better promise handling
