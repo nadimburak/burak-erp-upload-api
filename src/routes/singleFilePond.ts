@@ -16,9 +16,9 @@ const upload = multer({
 // Routes configuration
 router.get("/upload", index); // List all uploads
 router.get("/upload/:id", upload.none(), view); // View/download specific file
-router.put("/upload/:id", bodyParser.raw({ type: '*/*', limit: '10gb' }), upload.single('chunk'), storeChunk); // Handle chunk uploads
-router.head("/upload/:id", bodyParser.raw({ type: '*/*', limit: '10gb' }), upload.single('chunk'), storeChunk); // Handle HEAD requests for chunk status
-router.delete("/upload/:id", upload.none(), destroy); // Delete upload
+router.patch("/upload", bodyParser.raw({ type: '*/*', limit: '10gb' }), upload.single('chunk'), storeChunk); // Handle chunk uploads
+router.head("/upload", bodyParser.raw({ type: '*/*', limit: '10gb' }), upload.single('chunk'), storeChunk); // Handle HEAD requests for chunk status
+router.delete("/upload", destroy); // Delete upload
 router.post('/upload', upload.none(), store); // Initialize upload (metadata only)
 
 export default router;
