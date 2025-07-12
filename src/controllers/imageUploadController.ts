@@ -53,7 +53,7 @@ export const store = async (req: Request, res: Response) => {
 
 export const storeChunk = async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
+        const { patch } = req.query as { patch: string }; // Type assertion for query params
         const { error } = await validateChunkHeaders(req.headers);
         if (error) {
             res.status(400).json({ error: error.message });
@@ -65,17 +65,21 @@ export const storeChunk = async (req: Request, res: Response) => {
         const filename = req.headers['upload-name'] as string;
 
         await processChunkUploads({
-            fileId: id,
+            fileId: patch,
             offset,
             length,
             filename,
             chunkData: req.file?.buffer || req.body
         });
 
-        res.set('Upload-Offset', String(offset + (req.file?.buffer?.length || 0))).json({
+        res.status(200).json({
             success: true,
-            message: 'Chunk uploaded successfully'
+            message: 'Chunk uploaded successfully',
+            fileId: patch,
+            fileName: filename,
+            offset: offset + (req.file?.buffer?.length || 0)
         });
+
     } catch (error) {
         console.error('Chunk upload error:', error);
         const status = error instanceof Error && error.message.includes('not found') ? 404 : 500;
@@ -88,7 +92,7 @@ export const storeChunk = async (req: Request, res: Response) => {
 
 export const destroy = async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
+        const id = req.body;
         const upload = await Upload.findOneAndDelete({ file_path: id });
 
         if (!upload) {
@@ -143,13 +147,40 @@ export const view = async (req: Request, res: Response) => {
 
 export const index = async (req: Request, res: Response) => {
     try {
-        const uploads = await Upload.find().select('-__v').lean();
-        res.status(200).json({ success: true, uploads });
+        const { load } = req.query as { load?: string }; // Type assertion for query params
+
+        // If load parameter is provided, filter by file_path
+        if (load && typeof load === 'string') {
+            const uploads = await Upload.findOne({ file_path: load })
+                .select('-__v')
+                .lean()
+                .exec(); // Adding .exec() for better promise handling
+
+            res.status(200).json(uploads);
+        }
+
+        // If no load parameter, get all uploads
+        const uploads = await Upload.find()
+            .select('-__v')
+            .lean()
+            .exec();
+
+        res.status(200).json({
+            success: true,
+            data: uploads
+        });
+
     } catch (error) {
         console.error('File list error:', error);
-        res.status(500).json({
+
+        // More specific error messages based on error type
+        const message = error instanceof Error
+            ? error.message
+            : 'Failed to load files';
+
+         res.status(500).json({
             success: false,
-            message: 'Failed to load files'
+            message
         });
     }
 };

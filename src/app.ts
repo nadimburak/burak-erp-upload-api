@@ -121,6 +121,7 @@ class App {
   }
 
   private initializeMiddlewares(): void {
+    this.app.use(bodyParser.text());
     this.app.use(bodyParser.json());
     this.app.use(bodyParser.urlencoded({ extended: true }));
     this.app.use(cors());
